@@ -22,7 +22,7 @@ public class Main {
         userDAO.updateUser(retrievedUser);
 
         // Удаление пользователя
-        //userDAO.deleteUser(1L);
+        userDAO.deleteUser(1L);
 
         // Закрытие SessionFactory при завершении
         HibernateUtil.shutdown();
