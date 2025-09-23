@@ -1,7 +1,14 @@
-package org.example;
+package org.example.service;
 
 
+import org.springframework.transaction.annotation.Transactional;
+import org.example.MappingUtil;
+import org.example.User;
+import org.example.UserRepository;
+import org.example.dto.UserDto;
+import org.example.dto.UserEvent;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -13,11 +20,13 @@ public class UserService {
 
     private final MappingUtil mappingUtil;
     private final UserRepository userRepository;
+    private KafkaProducerService kafkaProducerService;
 
     @Autowired
-    public UserService(MappingUtil mappingUtil, UserRepository userRepository) {
+    public UserService(MappingUtil mappingUtil, UserRepository userRepository, KafkaProducerService kafkaProducerService) {
         this.mappingUtil = mappingUtil;
         this.userRepository = userRepository;
+        this.kafkaProducerService = kafkaProducerService;
     }
 
     public List<UserDto> getAllUsers() {
@@ -30,9 +39,15 @@ public class UserService {
     public  Optional<UserDto> getUserById(Long id) {
         return userRepository.findById(id).map(mappingUtil::mapToUserDto);
     }
+    @Transactional
+    public UserDto createUser(User user) throws DataIntegrityViolationException{
+        if (userRepository.existsByEmail(user.getEmail())) {
+            throw new DataIntegrityViolationException("Email already exists: " + user.getEmail());
+        }
 
-    public UserDto createUser(User user) {
         User savedUser = userRepository.save(user);
+        UserEvent userEvent = new UserEvent("USER_CREATED", savedUser.getEmail(), savedUser.getName());
+        kafkaProducerService.sendUserEvent(userEvent);
         return mappingUtil.mapToUserDto(savedUser);
     }
 
@@ -45,9 +60,17 @@ public class UserService {
                 });
     }
 
+    @Transactional
     public boolean deleteUser(Long id) {
-        if (userRepository.existsById(id)) {
+        Optional<User> userOptional = userRepository.findById(id);
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
             userRepository.deleteById(id);
+
+            // Send Kafka event
+            UserEvent userEvent = new UserEvent("USER_DELETED", user.getEmail(), user.getName());
+            kafkaProducerService.sendUserEvent(userEvent);
+
             return true;
         }
         return false;

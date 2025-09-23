@@ -1,5 +1,6 @@
 package org.example;
 
+import org.example.dto.UserDto;
 import org.springframework.stereotype.Service;
 
 @Service
