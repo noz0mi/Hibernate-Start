@@ -1,8 +1,7 @@
 package org.example;
 
 
-import org.example.dto.UserDto;
-import org.example.service.UserService;
+import org.example.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
